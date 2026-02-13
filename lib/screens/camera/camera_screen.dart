@@ -1,10 +1,12 @@
-import 'dart:io';
+import 'dart:io'; // Necessário para File() no Mobile
+import 'package:flutter/foundation.dart' show kIsWeb; // Verifica se é Web
 import 'package:flutter/material.dart';
-import 'package:camera/camera.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
+import 'package:image_picker/image_picker.dart';
+
 import '../../models/baia.dart';
 import '../../models/medicao.dart';
 import '../../providers/baia_provider.dart';
@@ -20,111 +22,36 @@ class CameraScreen extends StatefulWidget {
 }
 
 class _CameraScreenState extends State<CameraScreen> {
-  CameraController? _controller;
-  List<CameraDescription>? _cameras;
-  bool _isInitialized = false;
   bool _isProcessing = false;
-  File? _capturedImage;
+  XFile? _capturedImage; // Usamos XFile para compatibilidade total
   double? _pesoAnalisado;
 
   final ApiService _apiService = ApiService();
+  final ImagePicker _picker = ImagePicker();
 
-  @override
-  void initState() {
-    super.initState();
-    _initializeCamera();
-  }
-
-  Future<void> _initializeCamera() async {
+  Future<void> _fazerUpload(ImageSource source) async {
     try {
-      _cameras = await availableCameras();
-      if (_cameras!.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Nenhuma câmera disponível'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
-
-      _controller = CameraController(
-        _cameras![0],
-        ResolutionPreset.high,
-        enableAudio: false,
+      final XFile? imagem = await _picker.pickImage(
+        source: source,
+        imageQuality: 90,
       );
 
-      await _controller!.initialize();
-
-      if (mounted) {
+      if (imagem != null) {
         setState(() {
-          _isInitialized = true;
+          _capturedImage = imagem;
+          _pesoAnalisado = null;
         });
+        _analisarPeso(imagem);
       }
     } catch (e) {
-      print('Erro ao inicializar câmera: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao acessar câmera: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      _showError('Erro ao selecionar imagem: $e');
     }
   }
 
-  @override
-  void dispose() {
-    _controller?.dispose();
-    super.dispose();
-  }
-
-  Future<void> _tirarFoto() async {
-    if (_controller == null || !_controller!.value.isInitialized) {
-      return;
-    }
-
+  Future<void> _analisarPeso(XFile imageFile) async {
     try {
-      setState(() {
-        _isProcessing = true;
-      });
+      setState(() => _isProcessing = true);
 
-      final XFile foto = await _controller!.takePicture();
-      final File imageFile = File(foto.path);
-
-      setState(() {
-        _capturedImage = imageFile;
-      });
-
-      // Analisa a foto com a API
-      await _analisarPeso(imageFile);
-    } catch (e) {
-      print('Erro ao tirar foto: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao tirar foto: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      setState(() {
-        _isProcessing = false;
-      });
-    }
-  }
-
-  Future<void> _analisarPeso(File imageFile) async {
-    try {
-      setState(() {
-        _isProcessing = true;
-      });
-
-      // Mostra diálogo de carregamento
       if (mounted) {
         showDialog(
           context: context,
@@ -135,50 +62,37 @@ class _CameraScreenState extends State<CameraScreen> {
               children: [
                 CircularProgressIndicator(),
                 SizedBox(height: 16),
-                Text('Analisando imagem...'),
+                Text('IA analisando peso...'),
               ],
             ),
           ),
         );
       }
 
-      // MODO SIMULADO - Remover em produção
-      // Para desenvolvimento, usa peso simulado
-      final peso = await _apiService.simularAnalise();
+      final peso = await _apiService.analisarPesoSuino(imageFile);
 
-      // MODO REAL - Descomentar em produção
-      // final peso = await _apiService.analisarPesoSuino(imageFile);
-
-      if (mounted) {
-        Navigator.pop(context); // Fecha diálogo de carregamento
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
       }
 
       setState(() {
         _pesoAnalisado = peso;
+        _isProcessing = false;
       });
 
-      if (mounted) {
+      if (mounted && peso != null) {
         _mostrarResultado(peso, imageFile);
       }
     } catch (e) {
-      print('Erro ao analisar peso: $e');
-      if (mounted) {
-        Navigator.pop(context); // Fecha diálogo de carregamento
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao analisar: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
       }
-    } finally {
-      setState(() {
-        _isProcessing = false;
-      });
+      _showError('Erro na análise: $e');
+      setState(() => _isProcessing = false);
     }
   }
 
-  Future<void> _mostrarResultado(double peso, File imageFile) async {
+  Future<void> _mostrarResultado(double peso, XFile imageFile) async {
     final resultado = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -186,11 +100,7 @@ class _CameraScreenState extends State<CameraScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.check_circle,
-              size: 64,
-              color: Colors.green.shade700,
-            ),
+            Icon(Icons.check_circle, size: 64, color: Colors.green.shade700),
             const SizedBox(height: 16),
             Text(
               '${peso.toStringAsFixed(1)} kg',
@@ -201,10 +111,8 @@ class _CameraScreenState extends State<CameraScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Deseja salvar esta medição?',
-              textAlign: TextAlign.center,
-            ),
+            const Text('Deseja salvar esta medição?',
+                textAlign: TextAlign.center),
           ],
         ),
         actions: [
@@ -227,236 +135,221 @@ class _CameraScreenState extends State<CameraScreen> {
     if (resultado == true) {
       await _salvarMedicao(peso, imageFile);
     } else {
-      // Volta para a câmera
-      setState(() {
-        _capturedImage = null;
-        _pesoAnalisado = null;
-      });
+      _resetarSelecao();
     }
   }
 
-  Future<void> _salvarMedicao(double peso, File imageFile) async {
+  Future<void> _salvarMedicao(double peso, XFile imageFile) async {
     try {
-      // Salva a imagem permanentemente
-      final directory = await getApplicationDocumentsDirectory();
-      final imagePath = path.join(
-        directory.path,
-        'medicoes',
-        '${const Uuid().v4()}.jpg',
-      );
+      String finalPath = imageFile.path;
 
-      final imageDir = Directory(path.dirname(imagePath));
-      if (!await imageDir.exists()) {
-        await imageDir.create(recursive: true);
+      if (!kIsWeb) {
+        // Lógica exclusiva do Mobile
+        final directory = await getApplicationDocumentsDirectory();
+        final fileName = '${const Uuid().v4()}.jpg';
+        final savedPath = path.join(directory.path, 'medicoes', fileName);
+
+        final imageDir = Directory(path.dirname(savedPath));
+        if (!await imageDir.exists()) {
+          await imageDir.create(recursive: true);
+        }
+
+        await File(imageFile.path).copy(savedPath);
+        finalPath = savedPath;
       }
+      // Na Web, salvamos o path do blob temporário (ou faríamos upload para nuvem)
 
-      await imageFile.copy(imagePath);
-
-      // Cria a medição
       final medicao = Medicao(
         id: const Uuid().v4(),
         baiaId: widget.baia.id,
         dataHora: DateTime.now(),
         peso: peso,
-        imagemPath: imagePath,
+        imagemPath: finalPath,
       );
 
-      // Salva no provider
       final provider = Provider.of<BaiaProvider>(context, listen: false);
       await provider.adicionarMedicao(widget.baia.id, medicao);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Medição salva com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
+              content: Text('Medição salva!'), backgroundColor: Colors.green),
         );
-
-        // Volta para a tela anterior
         Navigator.pop(context);
       }
     } catch (e) {
-      print('Erro ao salvar medição: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao salvar: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      _showError('Erro ao salvar: $e');
     }
   }
 
-  void _refazerFoto() {
+  void _resetarSelecao() {
     setState(() {
       _capturedImage = null;
       _pesoAnalisado = null;
+      _isProcessing = false;
     });
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+
+  // --- WIDGET PARA EXIBIR IMAGEM COM SEGURANÇA NA WEB ---
+  Widget _buildImageDisplay() {
+    if (_capturedImage == null) return Container();
+
+    if (kIsWeb) {
+      // WEB: Usa Image.network com o caminho do blob
+      return Image.network(
+        _capturedImage!.path,
+        fit: BoxFit.contain,
+        errorBuilder: (ctx, err, stack) =>
+            const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+      );
+    } else {
+      // MOBILE: Usa Image.file com dart:io File
+      return Image.file(
+        File(_capturedImage!.path),
+        fit: BoxFit.contain,
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_isInitialized && _capturedImage == null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Câmera'),
-          backgroundColor: Colors.green.shade700,
-          foregroundColor: Colors.white,
-        ),
-        body: const Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: Text('Baia ${widget.baia.numero} - Medir Peso'),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
+        title: Text('Medição: Baia ${widget.baia.numero}'),
+        centerTitle: true,
+        elevation: 0,
       ),
-      body: Stack(
-        children: [
-          // Preview da câmera ou imagem capturada
-          if (_capturedImage != null)
-            Center(
-              child: Image.file(_capturedImage!),
-            )
-          else if (_controller != null && _controller!.value.isInitialized)
-            Center(
-              child: CameraPreview(_controller!),
-            ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: _capturedImage == null ? _buildUploadUI() : _buildReviewUI(),
+        ),
+      ),
+    );
+  }
 
-          // Guias de enquadramento
-          if (_capturedImage == null)
-            CustomPaint(
-              painter: FrameGuidesPainter(),
-              child: Container(),
-            ),
-
-          // Instruções
-          if (_capturedImage == null)
-            Positioned(
-              top: 20,
-              left: 20,
-              right: 20,
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Column(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.white),
-                    SizedBox(height: 8),
-                    Text(
-                      'Posicione o porco dentro do quadro',
-                      style: TextStyle(color: Colors.white),
-                      textAlign: TextAlign.center,
-                    ),
-                    Text(
-                      'Tire a foto de lado, mostrando o corpo completo',
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-          // Controles
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: Colors.black87,
-              ),
-              child: _capturedImage == null
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        FloatingActionButton(
-                          onPressed: _isProcessing ? null : _tirarFoto,
-                          backgroundColor: Colors.white,
-                          child: _isProcessing
-                              ? const CircularProgressIndicator()
-                              : const Icon(Icons.camera_alt, color: Colors.black),
-                        ),
-                      ],
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: _refazerFoto,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Refazer'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                        if (_pesoAnalisado != null)
-                          ElevatedButton.icon(
-                            onPressed: () => _salvarMedicao(_pesoAnalisado!, _capturedImage!),
-                            icon: const Icon(Icons.save),
-                            label: const Text('Salvar'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green.shade700,
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                      ],
-                    ),
+  Widget _buildUploadUI() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.cloud_upload_outlined,
+            size: 100, color: Colors.blue.shade200),
+        const SizedBox(height: 24),
+        const Text(
+          'Análise de Peso por Foto',
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Selecione uma imagem clara do animal.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.grey),
+        ),
+        const SizedBox(height: 48),
+        SizedBox(
+          width: double.infinity,
+          height: 60,
+          child: ElevatedButton.icon(
+            onPressed:
+                _isProcessing ? null : () => _fazerUpload(ImageSource.gallery),
+            icon: const Icon(Icons.photo_library),
+            label: const Text('ABRIR GALERIA', style: TextStyle(fontSize: 16)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade700,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          height: 60,
+          child: OutlinedButton.icon(
+            onPressed:
+                _isProcessing ? null : () => _fazerUpload(ImageSource.camera),
+            icon: const Icon(Icons.camera_alt),
+            label:
+                const Text('TIRAR FOTO AGORA', style: TextStyle(fontSize: 16)),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: Colors.blue.shade700),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+      ],
     );
   }
-}
 
-class FrameGuidesPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white70
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-
-    final rect = Rect.fromCenter(
-      center: Offset(size.width / 2, size.height / 2),
-      width: size.width * 0.8,
-      height: size.height * 0.5,
+  Widget _buildReviewUI() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text("Imagem Selecionada",
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            height: 350,
+            width: double.infinity,
+            color: Colors.grey[200],
+            // AQUI CHAMAMOS A FUNÇÃO SEGURA
+            child: _buildImageDisplay(),
+          ),
+        ),
+        const SizedBox(height: 24),
+        if (_isProcessing)
+          const Column(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 12),
+              Text("Processando imagem..."),
+            ],
+          )
+        else
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _resetarSelecao,
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  label: const Text('DESCARTAR',
+                      style: TextStyle(color: Colors.red)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.red),
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              if (_pesoAnalisado != null)
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () =>
+                        _salvarMedicao(_pesoAnalisado!, _capturedImage!),
+                    icon: const Icon(Icons.save),
+                    label: const Text('SALVAR'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green.shade700,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+      ],
     );
-
-    // Desenha os cantos do frame
-    final cornerLength = 40.0;
-
-    // Canto superior esquerdo
-    canvas.drawLine(rect.topLeft, Offset(rect.left + cornerLength, rect.top), paint);
-    canvas.drawLine(rect.topLeft, Offset(rect.left, rect.top + cornerLength), paint);
-
-    // Canto superior direito
-    canvas.drawLine(rect.topRight, Offset(rect.right - cornerLength, rect.top), paint);
-    canvas.drawLine(rect.topRight, Offset(rect.right, rect.top + cornerLength), paint);
-
-    // Canto inferior esquerdo
-    canvas.drawLine(rect.bottomLeft, Offset(rect.left + cornerLength, rect.bottom), paint);
-    canvas.drawLine(rect.bottomLeft, Offset(rect.left, rect.bottom - cornerLength), paint);
-
-    // Canto inferior direito
-    canvas.drawLine(rect.bottomRight, Offset(rect.right - cornerLength, rect.bottom), paint);
-    canvas.drawLine(rect.bottomRight, Offset(rect.right, rect.bottom - cornerLength), paint);
   }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
