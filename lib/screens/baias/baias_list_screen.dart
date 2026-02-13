@@ -188,7 +188,8 @@ class _BaiasListScreenState extends State<BaiasListScreen> {
   }
 
   Widget _buildBaiaCard(BuildContext context, Baia baia, BaiaProvider provider) {
-    final pesoMedio = baia.pesoMedioAtual;
+    // Prioriza peso manual se disponível, senão usa peso médio
+    final pesoMedio = baia.pesoManualMedio ?? baia.pesoMedioAtual;
     final hasWarning = baia.leitoeMortos > 0 || baia.quantidadeSuinos == 0;
 
     return Card(

@@ -9,6 +9,7 @@ class Baia {
   SexoBaia sexo;
   int quantidadeSuinos;
   int leitoeMortos;
+  double? pesoManualMedio; // [FUNCIONALIDADE DE DESENVOLVEDOR]
   List<Medicao> medicoes;
 
   Baia({
@@ -18,6 +19,7 @@ class Baia {
     required this.sexo,
     required this.quantidadeSuinos,
     this.leitoeMortos = 0,
+    this.pesoManualMedio,
     List<Medicao>? medicoes,
   }) : medicoes = medicoes ?? [];
 
@@ -70,6 +72,7 @@ class Baia {
       'sexo': sexo == SexoBaia.macho ? 'macho' : 'femea',
       'quantidadeSuinos': quantidadeSuinos,
       'leitoeMortos': leitoeMortos,
+      'pesoManualMedio': pesoManualMedio,
       'medicoes': medicoes.map((m) => m.toJson()).toList(),
     };
   }
@@ -82,6 +85,7 @@ class Baia {
       sexo: json['sexo'] == 'macho' ? SexoBaia.macho : SexoBaia.femea,
       quantidadeSuinos: json['quantidadeSuinos'],
       leitoeMortos: json['leitoeMortos'] ?? 0,
+      pesoManualMedio: json['pesoManualMedio'],
       medicoes: (json['medicoes'] as List?)
               ?.map((m) => Medicao.fromJson(m))
               .toList() ??
@@ -96,6 +100,7 @@ class Baia {
     SexoBaia? sexo,
     int? quantidadeSuinos,
     int? leitoeMortos,
+    double? pesoManualMedio,
     List<Medicao>? medicoes,
   }) {
     return Baia(
@@ -105,6 +110,7 @@ class Baia {
       sexo: sexo ?? this.sexo,
       quantidadeSuinos: quantidadeSuinos ?? this.quantidadeSuinos,
       leitoeMortos: leitoeMortos ?? this.leitoeMortos,
+      pesoManualMedio: pesoManualMedio ?? this.pesoManualMedio,
       medicoes: medicoes ?? this.medicoes,
     );
   }

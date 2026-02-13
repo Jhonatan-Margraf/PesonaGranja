@@ -3,19 +3,41 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../models/baia.dart';
 import '../../providers/baia_provider.dart';
+import '../../providers/lote_provider.dart';
 import '../camera/camera_screen.dart';
 import 'baia_form_screen.dart';
 
-class BaiaDetailScreen extends StatelessWidget {
+class BaiaDetailScreen extends StatefulWidget {
   final Baia baia;
 
   const BaiaDetailScreen({Key? key, required this.baia}) : super(key: key);
 
   @override
+  State<BaiaDetailScreen> createState() => _BaiaDetailScreenState();
+}
+
+class _BaiaDetailScreenState extends State<BaiaDetailScreen> {
+  late TextEditingController _pesoController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pesoController = TextEditingController(
+      text: widget.baia.pesoManualMedio?.toStringAsFixed(1) ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _pesoController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Baia ${baia.numero}'),
+        title: Text('Baia ${widget.baia.numero}'),
         backgroundColor: Colors.green.shade700,
         foregroundColor: Colors.white,
         actions: [
@@ -26,8 +48,8 @@ class BaiaDetailScreen extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (context) => BaiaFormScreen(
-                    loteId: baia.loteId,
-                    baia: baia,
+                    loteId: widget.baia.loteId,
+                    baia: widget.baia,
                   ),
                 ),
               );
@@ -55,7 +77,7 @@ class BaiaDetailScreen extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => CameraScreen(baia: baia),
+              builder: (context) => CameraScreen(baia: widget.baia),
             ),
           );
         },
@@ -71,7 +93,7 @@ class BaiaDetailScreen extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: baia.sexo == SexoBaia.macho ? Colors.blue.shade700 : Colors.pink.shade700,
+        color: widget.baia.sexo == SexoBaia.macho ? Colors.blue.shade700 : Colors.pink.shade700,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -79,7 +101,7 @@ class BaiaDetailScreen extends StatelessWidget {
           Row(
             children: [
               Icon(
-                baia.sexo == SexoBaia.macho ? Icons.male : Icons.female,
+                widget.baia.sexo == SexoBaia.macho ? Icons.male : Icons.female,
                 size: 48,
                 color: Colors.white,
               ),
@@ -96,7 +118,7 @@ class BaiaDetailScreen extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      baia.numero,
+                      widget.baia.numero,
                       style: const TextStyle(
                         fontSize: 36,
                         fontWeight: FontWeight.bold,
@@ -110,7 +132,7 @@ class BaiaDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            baia.sexo == SexoBaia.macho ? 'Machos' : 'Fêmeas',
+            widget.baia.sexo == SexoBaia.macho ? 'Machos' : 'Fêmeas',
             style: const TextStyle(
               fontSize: 16,
               color: Colors.white70,
@@ -133,7 +155,7 @@ class BaiaDetailScreen extends StatelessWidget {
               Expanded(
                 child: _buildInfoCard(
                   'Suínos Atuais',
-                  '${baia.quantidadeSuinos}',
+                  '${widget.baia.quantidadeSuinos}',
                   Icons.pets,
                   Colors.green,
                 ),
@@ -142,9 +164,9 @@ class BaiaDetailScreen extends StatelessWidget {
               Expanded(
                 child: _buildInfoCard(
                   'Mortalidade',
-                  '${baia.leitoeMortos}',
+                  '${widget.baia.leitoeMortos}',
                   Icons.warning_amber,
-                  baia.leitoeMortos > 0 ? Colors.red : Colors.grey,
+                  widget.baia.leitoeMortos > 0 ? Colors.red : Colors.grey,
                 ),
               ),
             ],
@@ -155,7 +177,7 @@ class BaiaDetailScreen extends StatelessWidget {
   }
 
   Widget _buildWeightSection() {
-    final pesoMedio = baia.pesoMedioAtual;
+    final pesoMedio = widget.baia.pesoMedioAtual;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -194,6 +216,116 @@ class BaiaDetailScreen extends StatelessWidget {
                       color: Colors.grey.shade600,
                     ),
                   ),
+                  const SizedBox(height: 24),
+                  // [FUNCIONALIDADE DE DESENVOLVEDOR]
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      border: Border.all(color: Colors.orange.shade200),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.code, size: 16, color: Colors.orange.shade700),
+                            const SizedBox(width: 8),
+                            Text(
+                              'FUNCIONALIDADE DE DESENVOLVEDOR',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _pesoController,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: InputDecoration(
+                            labelText: 'Adicionar Medida Manual (kg)',
+                            hintText: '0.0',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                          onChanged: (value) {
+                            if (value.isEmpty) {
+                              widget.baia.pesoManualMedio = null;
+                            } else {
+                              final peso = double.tryParse(value);
+                              if (peso != null) {
+                                widget.baia.pesoManualMedio = peso;
+                              }
+                            }
+                            setState(() {});
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange.shade700,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                            ),
+                            onPressed: () async {
+                              final peso = double.tryParse(_pesoController.text);
+                              if (peso != null && peso > 0) {
+                                final baiaProvider = context.read<BaiaProvider>();
+                                final loteProvider = context.read<LoteProvider>();
+                                
+                                final baiaAtualizada = widget.baia.copyWith(
+                                  pesoManualMedio: peso,
+                                );
+                                await baiaProvider.atualizarBaia(baiaAtualizada);
+                                
+                                // Calcula a média de peso real das baias após atualizar
+                                // (aguarda um pouco para garantir que a baia foi atualizada)
+                                await Future.delayed(const Duration(milliseconds: 500));
+                                final pesoMedioReal = baiaProvider.getPesoMedioRealManual();
+                                
+                                if (pesoMedioReal != null) {
+                                  // Busca o lote correspondente
+                                  final lote = loteProvider.getLoteById(widget.baia.loteId);
+                                  if (lote != null) {
+                                    final loteAtualizado = lote.copyWith(
+                                      pesoMedioReal: pesoMedioReal,
+                                      dataPesagemReal: DateTime.now(),
+                                    );
+                                    await loteProvider.atualizarLote(loteAtualizado);
+                                  }
+                                }
+                                
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Medida manual ${peso.toStringAsFixed(1)} kg salva e lote atualizado'),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Digite um peso válido'),
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            },
+                            child: const Text('Salvar Medida'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -204,7 +336,7 @@ class BaiaDetailScreen extends StatelessWidget {
   }
 
   Widget _buildHistorySection() {
-    if (baia.medicoes.isEmpty) {
+    if (widget.baia.medicoes.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -243,7 +375,7 @@ class BaiaDetailScreen extends StatelessWidget {
     final medicoesAgrupadas = <String, List<double>>{};
     final dateFormat = DateFormat('dd/MM/yyyy');
 
-    for (var medicao in baia.medicoes) {
+    for (var medicao in widget.baia.medicoes) {
       final dataStr = dateFormat.format(medicao.dataHora);
       if (!medicoesAgrupadas.containsKey(dataStr)) {
         medicoesAgrupadas[dataStr] = [];
@@ -261,7 +393,7 @@ class BaiaDetailScreen extends StatelessWidget {
             children: [
               _buildSectionTitle('Histórico de Medições'),
               Text(
-                '${baia.medicoes.length} medições',
+                '${widget.baia.medicoes.length} medições',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey.shade600,
@@ -386,7 +518,7 @@ class BaiaDetailScreen extends StatelessWidget {
           TextButton(
             onPressed: () async {
               final provider = Provider.of<BaiaProvider>(context, listen: false);
-              await provider.deletarBaia(baia.id);
+              await provider.deletarBaia(widget.baia.id);
               if (context.mounted) {
                 Navigator.pop(context); // Fecha o diálogo
                 Navigator.pop(context); // Volta para lista

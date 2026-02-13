@@ -9,6 +9,8 @@ class Lote {
   int machosAlojados;
   int femeasAlojadas;
   String linhaGenetica;
+  double? pesoMedioReal;
+  DateTime? dataPesagemReal;
 
   Lote({
     required this.id,
@@ -21,13 +23,31 @@ class Lote {
     required this.machosAlojados,
     required this.femeasAlojadas,
     required this.linhaGenetica,
+    this.pesoMedioReal,
+    this.dataPesagemReal,
   });
 
   int get animaisAtuais => quantidadeAlojada - mortalidade;
 
-  double get pesoMedioAtual {
+  double get pesoMedioAtualEstimado {
     final diasDesdeAlojamento = DateTime.now().difference(dataAlojamento).inDays;
     return pesoMedioInicial + (estimativaGPD * diasDesdeAlojamento);
+  }
+
+  bool get temMedicaoReal => pesoMedioReal != null;
+
+  double get ganhoEstimado => pesoMedioAtualEstimado - pesoMedioInicial;
+
+  double get ganhoReal {
+    if (!temMedicaoReal) return 0;
+    return pesoMedioReal! - pesoMedioInicial;
+  }
+
+  double get gpdReal {
+    if (!temMedicaoReal || dataPesagemReal == null) return 0;
+    final diasDesdeAlojamento = dataPesagemReal!.difference(dataAlojamento).inDays;
+    if (diasDesdeAlojamento == 0) return 0;
+    return ganhoReal / diasDesdeAlojamento;
   }
 
   Map<String, dynamic> toJson() {
@@ -42,6 +62,8 @@ class Lote {
       'machosAlojados': machosAlojados,
       'femeasAlojadas': femeasAlojadas,
       'linhaGenetica': linhaGenetica,
+      'pesoMedioReal': pesoMedioReal,
+      'dataPesagemReal': dataPesagemReal?.toIso8601String(),
     };
   }
 
@@ -57,6 +79,8 @@ class Lote {
       machosAlojados: json['machosAlojados'],
       femeasAlojadas: json['femeasAlojadas'],
       linhaGenetica: json['linhaGenetica'],
+      pesoMedioReal: json['pesoMedioReal'] != null ? json['pesoMedioReal'].toDouble() : null,
+      dataPesagemReal: json['dataPesagemReal'] != null ? DateTime.parse(json['dataPesagemReal']) : null,
     );
   }
 
@@ -71,6 +95,8 @@ class Lote {
     int? machosAlojados,
     int? femeasAlojadas,
     String? linhaGenetica,
+    double? pesoMedioReal,
+    DateTime? dataPesagemReal,
   }) {
     return Lote(
       id: id ?? this.id,
@@ -83,6 +109,8 @@ class Lote {
       machosAlojados: machosAlojados ?? this.machosAlojados,
       femeasAlojadas: femeasAlojadas ?? this.femeasAlojadas,
       linhaGenetica: linhaGenetica ?? this.linhaGenetica,
+      pesoMedioReal: pesoMedioReal ?? this.pesoMedioReal,
+      dataPesagemReal: dataPesagemReal ?? this.dataPesagemReal,
     );
   }
 }

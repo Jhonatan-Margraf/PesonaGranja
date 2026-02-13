@@ -120,7 +120,11 @@ class LoteDetailScreen extends StatelessWidget {
                   const Divider(),
                   _buildInfoRow('Linha Genética', lote.linhaGenetica),
                   const Divider(),
-                  _buildInfoRow('GPD Estimado', '${lote.estimativaGPD} kg/dia'),
+                  _buildInfoRow('GPD Estimado', '${lote.estimativaGPD.toStringAsFixed(3)} kg/dia'),
+                  if (lote.temMedicaoReal)
+                    const Divider(),
+                  if (lote.temMedicaoReal)
+                    _buildInfoRow('GPD Real', '${lote.gpdReal.toStringAsFixed(3)} kg/dia'),
                 ],
               ),
             ),
@@ -240,7 +244,7 @@ class LoteDetailScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '${lote.pesoMedioAtual.toStringAsFixed(1)} kg',
+                            '${lote.pesoMedioAtualEstimado.toStringAsFixed(1)} kg',
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
@@ -252,19 +256,119 @@ class LoteDetailScreen extends StatelessWidget {
                     ],
                   ),
                   const Divider(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.trending_up, color: Colors.green.shade700),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Ganho: ${(lote.pesoMedioAtual - lote.pesoMedioInicial).toStringAsFixed(1)} kg',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.green.shade700,
-                          fontWeight: FontWeight.bold,
+                  if (lote.temMedicaoReal)
+                    Column(
+                      children: [
+                        Text(
+                          'Peso Atual (Real)',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                          ),
                         ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${lote.pesoMedioReal!.toStringAsFixed(1)} kg',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue.shade700,
+                          ),
+                        ),
+                        const Divider(height: 24),
+                      ],
+                    ),
+                  if (!lote.temMedicaoReal)
+                    Column(
+                      children: [
+                        Text(
+                          'Peso Atual (Real)',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Desconhecido',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade500,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                        const Divider(height: 24),
+                      ],
+                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Ganho Estimado',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(Icons.trending_up, color: Colors.green.shade700, size: 18),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${lote.ganhoEstimado.toStringAsFixed(1)} kg',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.green.shade700,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
+                      if (lote.temMedicaoReal)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              'Ganho Real',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(
+                                  lote.ganhoReal > lote.ganhoEstimado
+                                      ? Icons.trending_up
+                                      : Icons.trending_down,
+                                  color: lote.ganhoReal > lote.ganhoEstimado
+                                      ? Colors.blue.shade700
+                                      : Colors.orange.shade700,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${lote.ganhoReal.toStringAsFixed(1)} kg',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: lote.ganhoReal > lote.ganhoEstimado
+                                        ? Colors.blue.shade700
+                                        : Colors.orange.shade700,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                     ],
                   ),
                 ],

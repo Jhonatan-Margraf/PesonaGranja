@@ -5,6 +5,8 @@ import '../../providers/lote_provider.dart';
 import '../../models/lote.dart';
 import 'lote_form_screen.dart';
 import 'lote_detail_screen.dart';
+import '../statistics_screen.dart';
+import '../settings_screen.dart';
 
 class LotesListScreen extends StatefulWidget {
   const LotesListScreen({Key? key}) : super(key: key);
@@ -26,9 +28,62 @@ class _LotesListScreenState extends State<LotesListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Lotes'),
+        title: const Text('Gerenciar Lotes'),
         backgroundColor: Colors.green.shade700,
         foregroundColor: Colors.white,
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: Colors.green.shade700,
+              ),
+              child: const Align(
+                alignment: Alignment.bottomLeft,
+                child: Text(
+                  'Menu',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.inventory_2),
+              title: const Text('Gerenciar Lotes'),
+              selected: true,
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.analytics),
+              title: const Text('Estatisticas'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (context) => const StatisticsScreen(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings),
+              title: const Text('Configuracoes'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (context) => const SettingsScreen(),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
       ),
       body: Consumer<LoteProvider>(
         builder: (context, provider, child) {
@@ -206,13 +261,38 @@ class _LotesListScreenState extends State<LotesListScreen> {
                   Expanded(
                     child: _buildInfoItem(
                       'Peso Atual (Est.)',
-                      '${lote.pesoMedioAtual.toStringAsFixed(1)} kg',
+                      '${lote.pesoMedioAtualEstimado.toStringAsFixed(1)} kg',
                       Icons.trending_up,
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 8),
+              ),              // Mostra peso real se disponível
+              if (lote.temMedicaoReal)
+                Column(
+                  children: [
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildInfoItem(
+                            'Peso Atual (Real)',
+                            '${lote.pesoMedioReal!.toStringAsFixed(1)} kg',
+                            Icons.check_circle,
+                            color: Colors.blue,
+                          ),
+                        ),
+                        Expanded(
+                          child: _buildInfoItem(
+                            'GPD Real',
+                            '${lote.gpdReal.toStringAsFixed(3)}',
+                            Icons.speed,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),              const SizedBox(height: 8),
               Text(
                 'Alojado em: ${dateFormat.format(lote.dataAlojamento)}',
                 style: TextStyle(

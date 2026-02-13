@@ -12,8 +12,6 @@ Adicione as seguintes permissões em `android/app/src/main/AndroidManifest.xml`:
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-feature android:name="android.hardware.camera" />
     
     <!-- Features de hardware -->
     <uses-feature android:name="android.hardware.camera" android:required="false"/>

@@ -90,4 +90,19 @@ class BaiaProvider with ChangeNotifier {
 
     return somaPesos / baiasComPeso.length;
   }
+
+  // Calcula o peso médio real baseado no pesoManualMedio (funcionalidade de desenvolvedor)
+  double? getPesoMedioRealManual() {
+    if (_baias.isEmpty) return null;
+    
+    final baiasComPesoManual = _baias.where((b) => b.pesoManualMedio != null).toList();
+    if (baiasComPesoManual.isEmpty) return null;
+
+    final somaPesos = baiasComPesoManual.fold<double>(
+      0,
+      (sum, baia) => sum + (baia.pesoManualMedio ?? 0),
+    );
+
+    return somaPesos / baiasComPesoManual.length;
+  }
 }
